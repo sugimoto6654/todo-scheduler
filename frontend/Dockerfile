@@ -1,6 +1,10 @@
 # ---------- ビルドステージ ----------
-FROM cirrusci/flutter:latest AS build
+FROM ghcr.io/cirruslabs/flutter:stable AS build
 WORKDIR /app
+
+RUN useradd -ms /bin/bash appuser && chown appuser /app
+USER appuser
+
 COPY . .
 RUN flutter pub get
 RUN flutter build web --release --dart-define=API_BASE=/api
