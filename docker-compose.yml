@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  frontend:
+    build: ./frontend
+    container_name: todo_frontend
+    ports:
+      - "8080:80"        # http://localhost:8080
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    container_name: todo_backend
+    environment:
+      - FLASK_ENV=production
+    expose:
+      - "5000"           # Compose 内部向け
