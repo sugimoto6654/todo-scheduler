@@ -1,18 +1,14 @@
-name: todo_frontend
-publish_to: 'none'
-version: 0.1.0
+name: todo_web
+description: A simple Todo web app with Flutter
+version: 1.0.0
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ">=3.4.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.13.0
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
+  http: ^1.2.1               # ← 依存パッケージはここだけ
 
 flutter:
   uses-material-design: true

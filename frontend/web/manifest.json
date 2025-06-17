@@ -1,5 +1,5 @@
 {
-  "name": "Todo App",
+  "name": "Todo Scheduler",
   "short_name": "Todo",
   "start_url": "/",
   "display": "standalone"

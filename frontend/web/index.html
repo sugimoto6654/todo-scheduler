@@ -2,20 +2,23 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="description" content="Todo app built with Flutter">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Todo App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- Flutter が生成する 2 本の JS を必ず読み込む -->
   <script src="flutter.js" defer></script>
+  <script src="flutter_bootstrap.js" defer></script>
   <script>
-    window.addEventListener('load', function () {
+    window.addEventListener('load', () => {
       _flutter.loader.loadEntrypoint({
         entrypointUrl: 'main.dart.js'
-      }).then(function(engine) {
-        engine.run();
-      });
+      }).then(engineInitializer =>
+        engineInitializer.initializeEngine()
+      ).then(appRunner =>
+        appRunner.runApp()
+      );
     });
   </script>
 </body>

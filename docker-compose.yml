@@ -1,17 +1,15 @@
 version: "3.9"
 services:
-  frontend:
-    build: ./frontend
-    container_name: todo_frontend
-    ports:
-      - "8080:80"        # http://localhost:8080
-    depends_on:
-      - backend
-
   backend:
     build: ./backend
-    container_name: todo_backend
-    environment:
-      - FLASK_ENV=production
-    expose:
-      - "5000"           # Compose 内部向け
+    ports:
+      - "5001:5000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"   # ホスト 8080 → nginx 80
+    depends_on:
+      - backend
+    restart: unless-stopped
