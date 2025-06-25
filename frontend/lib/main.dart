@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
-  await dotenv.load(fileName: ".env");
   runApp(const TodoApp());
 }
 
@@ -21,9 +19,6 @@ class _TodoAppState extends State<TodoApp> {
   final _api =
       const String.fromEnvironment('API', defaultValue: 'http://backend:5000');
 
-  // --- OpenAI --------------------------------------------------------------
-  final _openaiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
-  final _openaiModel = dotenv.env['OPENAI_MODEL'] ?? 'gpt-3.5-turbo';
 
   // --- Todo & Calendar -----------------------------------------------------
   List<Map<String, dynamic>> todos = [];
@@ -37,11 +32,21 @@ class _TodoAppState extends State<TodoApp> {
   // --- Controllers ---------------------------------------------------------
   final TextEditingController _controller = TextEditingController();
   final ScrollController _chatScroll = ScrollController();
+  final FocusNode _textFieldFocus = FocusNode();
+
+  // --- Date Picker ---------------------------------------------------------
+  DateTime? _selectedDueDate;
 
   @override
   void initState() {
     super.initState();
     _fetchTodos();
+  }
+
+  @override
+  void dispose() {
+    _textFieldFocus.dispose();
+    super.dispose();
   }
 
   // Helper to remove the time part
@@ -66,9 +71,46 @@ class _TodoAppState extends State<TodoApp> {
       tmpEvents.putIfAbsent(key, () => []).add(t);
     }
 
+    // 日付に基づいてタスクを並び替え
+    tmpTodos.sort((a, b) {
+      final dateA = a['date'] != null ? DateTime.parse(a['date']) : null;
+      final dateB = b['date'] != null ? DateTime.parse(b['date']) : null;
+      
+      // 日付がないタスクは最後に表示
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1;
+      if (dateB == null) return -1;
+      
+      // 日付で昇順ソート（早い日付が上に）
+      return dateA.compareTo(dateB);
+    });
+
     setState(() {
       todos = tmpTodos;
       _events = tmpEvents;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Date picker methods
+  // -------------------------------------------------------------------------
+  Future<void> _selectDueDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDueDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDueDate = picked;
+      });
+    }
+  }
+
+  void _clearDueDate() {
+    setState(() {
+      _selectedDueDate = null;
     });
   }
 
@@ -76,6 +118,7 @@ class _TodoAppState extends State<TodoApp> {
     final raw = _controller.text.trim();
     if (raw.isEmpty) return;
     _controller.clear();           // 先にクリアしておく
+    _textFieldFocus.requestFocus(); // テキストフィールドにフォーカスを戻す
 
     // Chat モード ----------------------------------------------
     if (raw.startsWith('/chat ')) {
@@ -84,7 +127,10 @@ class _TodoAppState extends State<TodoApp> {
     }
 
     // Todo モード ----------------------------------------------
-    final date = _selectedDay ?? DateTime.now();
+    final date = _selectedDueDate ?? _selectedDay ?? DateTime.now();
+    
+    // タスクを追加後、due dateをクリア
+    final taskDate = date;
     try {
       final res = await http.post(
         Uri.parse('$_api/todos'),
@@ -95,12 +141,16 @@ class _TodoAppState extends State<TodoApp> {
           'title': raw,
           // ↓もし API が 'YYYY-MM-DD' 形式を期待するなら:
           // 'date': DateFormat('yyyy-MM-dd').format(date),
-          'date': date.toIso8601String(),
+          'date': taskDate.toIso8601String(),
         }),
       );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         await _fetchTodos();
+        // タスク追加成功後、due dateをクリア
+        setState(() {
+          _selectedDueDate = null;
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Todo 追加失敗: ${res.statusCode}\\n${res.body}')),
@@ -113,39 +163,30 @@ class _TodoAppState extends State<TodoApp> {
   }
 
   Future<void> _sendChat(String prompt) async {
-    if (_openaiKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OPENAI_API_KEY が未設定です')),
-      );
-      return;
-    }
-
     setState(() {
       _chatMessages.add({'role': 'user', 'content': prompt});
     });
 
     try {
       final res = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
+        Uri.parse('$_api/chat'),
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_openaiKey',
+          'Content-Type': 'application/json; charset=utf-8',
         },
         body: jsonEncode({
-          'model': _openaiModel,
           'messages': _chatMessages,
-          'temperature': 0.7,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final reply = data['choices'][0]['message']['content'] as String;
+        final reply = data['reply'] as String;
         setState(() {
-          _chatMessages.add({'role': 'assistant', 'content': reply.trim()});
+          _chatMessages.add({'role': 'assistant', 'content': reply});
         });
       } else {
-        throw Exception('OpenAI error ${res.statusCode}');
+        final errorData = jsonDecode(res.body);
+        throw Exception('Backend error: ${errorData['error'] ?? 'Unknown error'}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -167,27 +208,89 @@ class _TodoAppState extends State<TodoApp> {
   // -------------------------------------------------------------------------
   // UI widgets
   // -------------------------------------------------------------------------
-  Widget _todoItem(Map<String, dynamic> todo) => ListTile(
-        leading: Checkbox(
-          value: todo['done'],
-          onChanged: (v) async {
-            await http.patch(
-              Uri.parse('$_api/todos/${todo["id"]}'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'done': v}),
-            );
-            _fetchTodos();
-          },
-        ),
-        title: Text(todo['title']),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () async {
-            await http.delete(Uri.parse('$_api/todos/${todo["id"]}'));
-            _fetchTodos();
-          },
-        ),
-      );
+  Widget _todoItem(Map<String, dynamic> todo) {
+    final DateTime? dueDate = todo['date'] != null 
+        ? DateTime.parse(todo['date']).toLocal() 
+        : null;
+    
+    // 期限の表示用文字列と色を決定
+    String? dueDateText;
+    Color? dueDateColor;
+    
+    if (dueDate != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final taskDate = DateTime(dueDate.year, dueDate.month, dueDate.day);
+      final difference = taskDate.difference(today).inDays;
+      
+      if (difference < 0) {
+        dueDateText = '期限切れ (${dueDate.month}/${dueDate.day})';
+        dueDateColor = Colors.red;
+      } else if (difference == 0) {
+        dueDateText = '今日まで';
+        dueDateColor = Colors.orange.shade700;
+      } else if (difference == 1) {
+        dueDateText = '明日まで';
+        dueDateColor = Colors.orange;
+      } else {
+        dueDateText = '${dueDate.month}/${dueDate.day}まで';
+        dueDateColor = Colors.blue.shade600;
+      }
+    }
+    
+    return ListTile(
+      leading: Checkbox(
+        value: todo['done'],
+        onChanged: (v) async {
+          await http.patch(
+            Uri.parse('$_api/todos/${todo["id"]}'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'done': v}),
+          );
+          _fetchTodos();
+        },
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            todo['title'],
+            style: TextStyle(
+              decoration: todo['done'] ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          if (dueDateText != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: dueDateColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    dueDateText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: dueDateColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () async {
+          await http.delete(Uri.parse('$_api/todos/${todo["id"]}'));
+          _fetchTodos();
+        },
+      ),
+    );
+  }
 
   Widget _chatBubble(Map<String, String> msg) {
     final isUser = msg['role'] == 'user';
@@ -280,6 +383,14 @@ class _TodoAppState extends State<TodoApp> {
                             formatButtonVisible: false,
                             titleCentered: true,
                           ),
+                          calendarStyle: const CalendarStyle(
+                            selectedDecoration: BoxDecoration(
+                              color: Colors.transparent,
+                            ),
+                            todayDecoration: BoxDecoration(
+                              color: Colors.transparent,
+                            ),
+                          ),
                           calendarBuilders: CalendarBuilders(
                             defaultBuilder: (context, day, focusedDay) {
                               final key = _stripTime(day);
@@ -308,10 +419,49 @@ class _TodoAppState extends State<TodoApp> {
                             todayBuilder: (context, day, focusedDay) {
                               final key = _stripTime(day);
                               final tasks = _events[key] ?? [];
+                              final isSelected = _selectedDay != null && 
+                                  _stripTime(day) == _stripTime(_selectedDay!);
                               return Container(
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.blueAccent),
+                                  border: Border.all(
+                                    color: isSelected ? Colors.green : Colors.blueAccent,
+                                    width: isSelected ? 3 : 1,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
+                                  // ignore: deprecated_member_use
+                                  color: isSelected ? Colors.green.withOpacity(0.1) : null,
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.topRight,
+                                      child: Text('${day.day}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12)),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    ...tasks.take(6).map(
+                                      (t) => Text('• ${t["title"]}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 11)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            selectedBuilder: (context, day, focusedDay) {
+                              final key = _stripTime(day);
+                              final tasks = _events[key] ?? [];
+                              return Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.green, width: 2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  // ignore: deprecated_member_use
+                                  color: Colors.green.withOpacity(0.1),
                                 ),
                                 padding: const EdgeInsets.all(4),
                                 child: Column(
@@ -347,20 +497,62 @@ class _TodoAppState extends State<TodoApp> {
               // --- Input row (Todo & Chat) ------------------------------
               Padding(
                 padding: const EdgeInsets.all(8),
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration: const InputDecoration(
-                          hintText: 'Add task or type /chat message',
+                    // Due date display row
+                    if (_selectedDueDate != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
                         ),
-                        onSubmitted: (_) => _addTodoOrChat(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_today, size: 16, color: Colors.blue),
+                            const SizedBox(width: 4),
+                            Text(
+                              '期限: ${_selectedDueDate!.month}/${_selectedDueDate!.day}',
+                              style: const TextStyle(color: Colors.blue, fontSize: 12),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: _clearDueDate,
+                              child: const Icon(Icons.close, size: 16, color: Colors.blue),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: _addTodoOrChat,
+                    // Input row
+                    Row(
+                      children: [
+                        // Date picker button
+                        IconButton(
+                          icon: Icon(
+                            Icons.calendar_today,
+                            color: _selectedDueDate != null ? Colors.blue : Colors.grey,
+                          ),
+                          onPressed: _selectDueDate,
+                          tooltip: '期限を選択',
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _textFieldFocus,
+                            decoration: const InputDecoration(
+                              hintText: 'Add task or type /chat message',
+                            ),
+                            onSubmitted: (_) => _addTodoOrChat(),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.send),
+                          onPressed: _addTodoOrChat,
+                        ),
+                      ],
                     ),
                   ],
                 ),
