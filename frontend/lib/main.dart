@@ -209,85 +209,86 @@ class _TodoAppState extends State<TodoApp> {
   // UI widgets
   // -------------------------------------------------------------------------
   Widget _todoItem(Map<String, dynamic> todo) {
-    final DateTime? dueDate = todo['date'] != null 
-        ? DateTime.parse(todo['date']).toLocal() 
-        : null;
-    
+    final DateTime? dueDate =
+        todo['date'] != null ? DateTime.parse(todo['date']).toLocal() : null;
+
     // 期限の表示用文字列と色を決定
     String? dueDateText;
     Color? dueDateColor;
-    
+
     if (dueDate != null) {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final taskDate = DateTime(dueDate.year, dueDate.month, dueDate.day);
       final difference = taskDate.difference(today).inDays;
-      
+
       if (difference < 0) {
         dueDateText = '期限切れ (${dueDate.month}/${dueDate.day})';
-        dueDateColor = Colors.red;
+        dueDateColor = Colors.red.shade700;
       } else if (difference == 0) {
         dueDateText = '今日まで';
-        dueDateColor = Colors.orange.shade700;
+        dueDateColor = Colors.orange.shade800;
       } else if (difference == 1) {
         dueDateText = '明日まで';
-        dueDateColor = Colors.orange;
+        dueDateColor = Colors.orange.shade600;
       } else {
         dueDateText = '${dueDate.month}/${dueDate.day}まで';
-        dueDateColor = Colors.blue.shade600;
+        dueDateColor = Colors.blue.shade700;
       }
     }
-    
-    return ListTile(
-      leading: Checkbox(
-        value: todo['done'],
-        onChanged: (v) async {
-          await http.patch(
-            Uri.parse('$_api/todos/${todo["id"]}'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'done': v}),
-          );
-          _fetchTodos();
-        },
-      ),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            todo['title'],
-            style: TextStyle(
-              decoration: todo['done'] ? TextDecoration.lineThrough : null,
-            ),
-          ),
-          if (dueDateText != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.schedule,
-                    size: 14,
-                    color: dueDateColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    dueDateText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: dueDateColor,
-                    ),
-                  ),
-                ],
+
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      color: todo['done'] ? Colors.grey.shade200 : Colors.white,
+      child: ListTile(
+        leading: Checkbox(
+          value: todo['done'],
+          onChanged: (v) async {
+            await http.patch(
+              Uri.parse('$_api/todos/${todo["id"]}'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'done': v}),
+            );
+            _fetchTodos();
+          },
+          activeColor: Colors.green,
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              todo['title'],
+              style: TextStyle(
+                decoration: todo['done'] ? TextDecoration.lineThrough : null,
+                color: todo['done'] ? Colors.grey.shade600 : Colors.black87,
+                fontSize: 15,
               ),
             ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () async {
-          await http.delete(Uri.parse('$_api/todos/${todo["id"]}'));
-          _fetchTodos();
-        },
+            if (dueDateText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule, size: 14, color: dueDateColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      dueDateText,
+                      style: TextStyle(fontSize: 12, color: dueDateColor),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.delete_outline, color: Colors.red.shade300),
+          onPressed: () async {
+            await http.delete(Uri.parse('$_api/todos/${todo["id"]}'));
+            _fetchTodos();
+          },
+        ),
       ),
     );
   }
@@ -297,19 +298,28 @@ class _TodoAppState extends State<TodoApp> {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         decoration: BoxDecoration(
-          color: isUser ? Colors.blue.shade200 : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(12),
+          color: isUser ? Colors.blue.shade100 : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(msg['content'] ?? ''),
+        child: Text(
+          msg['content'] ?? '',
+          style: const TextStyle(fontSize: 15),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+          fontFamily: 'NotoSansJP',
+        ),
         locale: const Locale('ja', 'JP'),
         supportedLocales: const [
           Locale('en', 'US'),
@@ -321,243 +331,516 @@ class _TodoAppState extends State<TodoApp> {
           GlobalCupertinoLocalizations.delegate,
         ],
         home: Scaffold(
-          appBar: AppBar(title: const Text('Todo Scheduler')),
-          body: Column(
-            children: [
-              // --- Todo & Calendar ----------------------------------------
-              Expanded(
-                child: Row(
-                  children: [
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          // Todo list
-                          Expanded(
-                            child: ListView(
-                              padding: const EdgeInsets.all(8),
-                              children: todos.map<Widget>(_todoItem).toList(),
-                            ),
-                          ),
-                          // --- ChatGPT area -----------------------------------------
-                          Container(
-                            height: 240,
-                            decoration: BoxDecoration(
-                              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-                            ),
-                            child: _chatMessages.isEmpty
-                                ? const Center(child: Text('ここに ChatGPT と対話が表示されます'))
-                                : ListView.builder(
-                                    controller: _chatScroll,
-                                    itemCount: _chatMessages.length,
-                                    itemBuilder: (context, idx) => _chatBubble(_chatMessages[idx]),
-                                  ),
-                          ),
-                        ]
-                      )
-                    ),
-                    const SizedBox(width: 24),
-                    // Calendar
-                    Expanded(
-                      flex: 1,
-                      child: Card(
-                        elevation: 3,
-                        margin: EdgeInsets.zero,
-                        child: TableCalendar(
-                          locale: 'ja_JP',
-                          firstDay: DateTime.utc(2020),
-                          lastDay: DateTime.utc(2030),
-                          focusedDay: _focusedDay,
-                          rowHeight: 130,
-                          selectedDayPredicate: (day) => _selectedDay != null &&
-                              _stripTime(day) == _stripTime(_selectedDay!),
-                          onDaySelected: (selectedDay, focusedDay) {
-                            setState(() {
-                              _selectedDay = selectedDay;
-                              _focusedDay = focusedDay;
-                            });
-                          },
-                          startingDayOfWeek: StartingDayOfWeek.sunday,
-                          headerStyle: const HeaderStyle(
-                            formatButtonVisible: false,
-                            titleCentered: true,
-                          ),
-                          calendarStyle: const CalendarStyle(
-                            selectedDecoration: BoxDecoration(
-                              color: Colors.transparent,
-                            ),
-                            todayDecoration: BoxDecoration(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          calendarBuilders: CalendarBuilders(
-                            defaultBuilder: (context, day, focusedDay) {
-                              final key = _stripTime(day);
-                              final tasks = _events[key] ?? [];
-                              return Padding(
-                                padding: const EdgeInsets.all(4),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.topRight,
-                                      child: Text('${day.day}',
-                                          style: const TextStyle(fontSize: 12)),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    ...tasks.take(6).map(
-                                      (t) => Text('• ${t["title"]}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 11)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                            todayBuilder: (context, day, focusedDay) {
-                              final key = _stripTime(day);
-                              final tasks = _events[key] ?? [];
-                              final isSelected = _selectedDay != null && 
-                                  _stripTime(day) == _stripTime(_selectedDay!);
-                              return Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: isSelected ? Colors.green : Colors.blueAccent,
-                                    width: isSelected ? 3 : 1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  // ignore: deprecated_member_use
-                                  color: isSelected ? Colors.green.withOpacity(0.1) : null,
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.topRight,
-                                      child: Text('${day.day}',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12)),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    ...tasks.take(6).map(
-                                      (t) => Text('• ${t["title"]}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 11)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                            selectedBuilder: (context, day, focusedDay) {
-                              final key = _stripTime(day);
-                              final tasks = _events[key] ?? [];
-                              return Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.green, width: 2),
-                                  borderRadius: BorderRadius.circular(8),
-                                  // ignore: deprecated_member_use
-                                  color: Colors.green.withOpacity(0.1),
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.topRight,
-                                      child: Text('${day.day}',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12)),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    ...tasks.take(6).map(
-                                      (t) => Text('• ${t["title"]}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 11)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                  ],
-                ),
-              ),
-
-              // --- Input row (Todo & Chat) ------------------------------
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  children: [
-                    // Due date display row
-                    if (_selectedDueDate != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+          backgroundColor: Colors.grey.shade50,
+          appBar: AppBar(
+            title: const Text('Todo Scheduler',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+            elevation: 1,
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // --- Todo & Calendar ----------------------------------------
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- Left Pane (Todo List & Chat) ---
+                      Expanded(
+                        flex: 2,
+                        child: Column(
                           children: [
-                            const Icon(Icons.calendar_today, size: 16, color: Colors.blue),
-                            const SizedBox(width: 4),
-                            Text(
-                              '期限: ${_selectedDueDate!.month}/${_selectedDueDate!.day}',
-                              style: const TextStyle(color: Colors.blue, fontSize: 12),
+                            // Todo list
+                            Expanded(
+                              child: Card(
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                      child: Text('タスク一覧',
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                    Expanded(
+                                      child: ListView(
+                                        padding: const EdgeInsets.all(8),
+                                        children: todos
+                                            .map<Widget>(_todoItem)
+                                            .toList(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _clearDueDate,
-                              child: const Icon(Icons.close, size: 16, color: Colors.blue),
+                            const SizedBox(height: 16),
+                            // --- ChatGPT area ---
+                            Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Container(
+                                height: 240,
+                                padding: const EdgeInsets.all(8),
+                                child: _chatMessages.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.chat_bubble_outline,
+                                              size: 40,
+                                              color: Colors.grey.shade400),
+                                          const SizedBox(height: 8),
+                                          const Text('ChatGPT との対話を開始します',
+                                              style: TextStyle(
+                                                  color: Colors.grey)),
+                                        ],
+                                      ))
+                                    : ListView.builder(
+                                        controller: _chatScroll,
+                                        itemCount: _chatMessages.length,
+                                        itemBuilder: (context, idx) =>
+                                            _chatBubble(_chatMessages[idx]),
+                                      ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    // Input row
-                    Row(
-                      children: [
-                        // Date picker button
-                        IconButton(
-                          icon: Icon(
-                            Icons.calendar_today,
-                            color: _selectedDueDate != null ? Colors.blue : Colors.grey,
-                          ),
-                          onPressed: _selectDueDate,
-                          tooltip: '期限を選択',
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            focusNode: _textFieldFocus,
-                            decoration: const InputDecoration(
-                              hintText: 'Add task or type /chat message',
+                      const SizedBox(width: 16),
+                      // Calendar
+                      Expanded(
+                        flex: 2,
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: TableCalendar(
+                              locale: 'ja_JP',
+                              firstDay: DateTime.utc(2020),
+                              lastDay: DateTime.utc(2030),
+                              focusedDay: _focusedDay,
+                              rowHeight: 120.0,
+                              daysOfWeekHeight: 20.0,
+                              headerStyle: const HeaderStyle(
+                                formatButtonVisible: false,
+                                titleCentered: true,
+                                titleTextStyle: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              selectedDayPredicate: (day) =>
+                                  isSameDay(_selectedDay, day),
+                              onDaySelected: (selectedDay, focusedDay) {
+                                setState(() {
+                                  _selectedDay = selectedDay;
+                                  _focusedDay = focusedDay;
+                                });
+                              },
+                              startingDayOfWeek: StartingDayOfWeek.sunday,
+                              calendarBuilders: CalendarBuilders(
+                                defaultBuilder: (context, date, focusedDay) {
+                                  final tasks = _events[_stripTime(date)] ?? [];
+                                  return Container(
+                                    margin: const EdgeInsets.all(2.0),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                        width: 0.5,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 日付の表示
+                                        Padding(
+                                          padding: const EdgeInsets.all(2.0),
+                                          child: Text(
+                                            '${date.day}',
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                        // タスクの表示（最大6つ）
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.max,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // 最大6つのタスクを表示
+                                                ...tasks.take(6).map((task) => Container(
+                                                  width: double.infinity,
+                                                  constraints: const BoxConstraints(
+                                                    minHeight: 12.0,
+                                                    maxHeight: 12.0,
+                                                  ),
+                                                  margin: const EdgeInsets.only(bottom: 0.5),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 0.5),
+                                                  decoration: BoxDecoration(
+                                                    color: task['done'] 
+                                                        ? Colors.grey.shade300 
+                                                        : Colors.blue.shade100,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
+                                                  child: Text(
+                                                    task['title'] ?? '',
+                                                    style: TextStyle(
+                                                      fontSize: 7,
+                                                      color: task['done'] 
+                                                          ? Colors.grey.shade600 
+                                                          : Colors.blue.shade800,
+                                                      decoration: task['done'] 
+                                                          ? TextDecoration.lineThrough 
+                                                          : null,
+                                                      height: 1.0,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    softWrap: false,
+                                                  ),
+                                                )).toList(),
+                                                // 6つ以上のタスクがある場合の表示
+                                                if (tasks.length > 6)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    constraints: const BoxConstraints(
+                                                      minHeight: 12.0,
+                                                      maxHeight: 12.0,
+                                                    ),
+                                                    margin: const EdgeInsets.only(top: 0.5),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 0.5),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.orange.shade100,
+                                                      borderRadius: BorderRadius.circular(2),
+                                                    ),
+                                                    child: Text(
+                                                      '他${tasks.length - 6}件',
+                                                      style: TextStyle(
+                                                        fontSize: 6,
+                                                        color: Colors.orange.shade800,
+                                                        fontWeight: FontWeight.bold,
+                                                        height: 1.0,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                // 残りのスペースを埋める
+                                                const Spacer(),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                selectedBuilder: (context, date, focusedDay) {
+                                  final tasks = _events[_stripTime(date)] ?? [];
+                                  return Container(
+                                    margin: const EdgeInsets.all(2.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade300,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 日付の表示
+                                        Padding(
+                                          padding: const EdgeInsets.all(2.0),
+                                          child: Text(
+                                            '${date.day}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        // タスクの表示（最大6つ）
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.max,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // 最大6つのタスクを表示
+                                                ...tasks.take(6).map((task) => Container(
+                                                  width: double.infinity,
+                                                  constraints: const BoxConstraints(
+                                                    minHeight: 12.0,
+                                                    maxHeight: 12.0,
+                                                  ),
+                                                  margin: const EdgeInsets.only(bottom: 0.5),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 0.5),
+                                                  decoration: BoxDecoration(
+                                                    color: task['done'] 
+                                                        ? Colors.grey.shade300 
+                                                        : Colors.white,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
+                                                  child: Text(
+                                                    task['title'] ?? '',
+                                                    style: TextStyle(
+                                                      fontSize: 7,
+                                                      color: task['done'] 
+                                                          ? Colors.grey.shade600 
+                                                          : Colors.orange.shade800,
+                                                      decoration: task['done'] 
+                                                          ? TextDecoration.lineThrough 
+                                                          : null,
+                                                      height: 1.0,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    softWrap: false,
+                                                  ),
+                                                )).toList(),
+                                                // 6つ以上のタスクがある場合の表示
+                                                if (tasks.length > 6)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    constraints: const BoxConstraints(
+                                                      minHeight: 12.0,
+                                                      maxHeight: 12.0,
+                                                    ),
+                                                    margin: const EdgeInsets.only(top: 0.5),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 0.5),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      borderRadius: BorderRadius.circular(2),
+                                                    ),
+                                                    child: Text(
+                                                      '他${tasks.length - 6}件',
+                                                      style: TextStyle(
+                                                        fontSize: 6,
+                                                        color: Colors.orange.shade800,
+                                                        fontWeight: FontWeight.bold,
+                                                        height: 1.0,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                // 残りのスペースを埋める
+                                                const Spacer(),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                todayBuilder: (context, date, focusedDay) {
+                                  final tasks = _events[_stripTime(date)] ?? [];
+                                  return Container(
+                                    margin: const EdgeInsets.all(2.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 日付の表示
+                                        Padding(
+                                          padding: const EdgeInsets.all(2.0),
+                                          child: Text(
+                                            '${date.day}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.blue.shade800,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        // タスクの表示（最大6つ）
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.max,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // 最大6つのタスクを表示
+                                                ...tasks.take(6).map((task) => Container(
+                                                  width: double.infinity,
+                                                  constraints: const BoxConstraints(
+                                                    minHeight: 12.0,
+                                                    maxHeight: 12.0,
+                                                  ),
+                                                  margin: const EdgeInsets.only(bottom: 0.5),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 0.5),
+                                                  decoration: BoxDecoration(
+                                                    color: task['done'] 
+                                                        ? Colors.grey.shade300 
+                                                        : Colors.white,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
+                                                  child: Text(
+                                                    task['title'] ?? '',
+                                                    style: TextStyle(
+                                                      fontSize: 7,
+                                                      color: task['done'] 
+                                                          ? Colors.grey.shade600 
+                                                          : Colors.blue.shade800,
+                                                      decoration: task['done'] 
+                                                          ? TextDecoration.lineThrough 
+                                                          : null,
+                                                      height: 1.0,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    softWrap: false,
+                                                  ),
+                                                )).toList(),
+                                                // 6つ以上のタスクがある場合の表示
+                                                if (tasks.length > 6)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    constraints: const BoxConstraints(
+                                                      minHeight: 12.0,
+                                                      maxHeight: 12.0,
+                                                    ),
+                                                    margin: const EdgeInsets.only(top: 0.5),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 0.5),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      borderRadius: BorderRadius.circular(2),
+                                                    ),
+                                                    child: Text(
+                                                      '他${tasks.length - 6}件',
+                                                      style: TextStyle(
+                                                        fontSize: 6,
+                                                        color: Colors.blue.shade800,
+                                                        fontWeight: FontWeight.bold,
+                                                        height: 1.0,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                // 残りのスペースを埋める
+                                                const Spacer(),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              calendarStyle: const CalendarStyle(
+                                outsideDaysVisible: false,
+                              ),
                             ),
-                            onSubmitted: (_) => _addTodoOrChat(),
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.send),
-                          onPressed: _addTodoOrChat,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // --- Input row (Todo & Chat) ------------------------------
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Column(
+                      children: [
+                        // Due date display row
+                        if (_selectedDueDate != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color: Colors.blue.shade200),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Colors.blue),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '期限: ${_selectedDueDate!.month}/${_selectedDueDate!.day}',
+                                        style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: _clearDueDate,
+                                        child: const Icon(Icons.close,
+                                            size: 18, color: Colors.blue),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Input row
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.calendar_today_outlined,
+                                color: _selectedDueDate != null
+                                    ? Colors.blue
+                                    : Colors.grey.shade600,
+                              ),
+                              onPressed: _selectDueDate,
+                              tooltip: '期限を選択',
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                focusNode: _textFieldFocus,
+                                decoration: const InputDecoration(
+                                  hintText: 'タスクを追加、または /chat で話しかける',
+                                  border: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  errorBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                ),
+                                onSubmitted: (_) => _addTodoOrChat(),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline),
+                              onPressed: _addTodoOrChat,
+                              tooltip: '追加',
+                              color: Colors.blue,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
