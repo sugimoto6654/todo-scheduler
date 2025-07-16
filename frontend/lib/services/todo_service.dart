@@ -83,6 +83,63 @@ class TodoService {
 
   DateTime _stripTime(DateTime dt) => DateTime.utc(dt.year, dt.month, dt.day);
 
+  /// 効率的なデータ取得 - 必要に応じて実装
+  Future<List<Map<String, dynamic>>> fetchTodosOptimized({
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    // 現在は通常のfetchTodosと同じ処理
+    // 将来的には日付範囲やフィルタリングを追加可能
+    return await fetchTodos();
+  }
+
+  /// 部分的なデータ更新をサポート
+  Future<bool> updateTodosPartial(List<Map<String, dynamic>> updates) async {
+    // 複数のタスクの部分更新
+    // 現在は個別のupdateを順次実行
+    bool allSuccess = true;
+    
+    for (final update in updates) {
+      final id = update['id'];
+      final done = update['done'];
+      
+      if (id != null && done != null) {
+        final success = await updateTodoDone(id, done);
+        if (!success) {
+          allSuccess = false;
+        }
+      }
+    }
+    
+    return allSuccess;
+  }
+
+  /// キャッシュ機能のスケルトン
+  List<Map<String, dynamic>>? _cachedTodos;
+  DateTime? _lastCacheUpdate;
+  static const Duration _cacheExpiration = Duration(minutes: 5);
+
+  bool get _isCacheValid {
+    if (_cachedTodos == null || _lastCacheUpdate == null) return false;
+    return DateTime.now().difference(_lastCacheUpdate!) < _cacheExpiration;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTodosWithCache() async {
+    if (_isCacheValid) {
+      return _cachedTodos!;
+    }
+    
+    final todos = await fetchTodos();
+    _cachedTodos = todos;
+    _lastCacheUpdate = DateTime.now();
+    return todos;
+  }
+
+  void clearCache() {
+    _cachedTodos = null;
+    _lastCacheUpdate = null;
+  }
+
   /// 指定された月のタスクを取得
   List<Map<String, dynamic>> getCurrentMonthTasks(
     List<Map<String, dynamic>> todos,

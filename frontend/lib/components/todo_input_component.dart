@@ -89,7 +89,7 @@ class TodoInputComponent extends StatelessWidget {
             controller: controller,
             focusNode: focusNode,
             decoration: const InputDecoration(
-              hintText: 'タスクを追加、または /chat で話しかける',
+              hintText: 'タスクを追加、または /chat で話しかける（例：/chat 明日の会議準備タスクを追加して）',
               border: InputBorder.none,
               focusedBorder: InputBorder.none,
               enabledBorder: InputBorder.none,

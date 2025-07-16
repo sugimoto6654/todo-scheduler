@@ -67,7 +67,7 @@ class ActionHandler {
     if (actions.isEmpty) return '';
 
     final buffer = StringBuffer();
-    buffer.writeln('\\n📋 実行されたアクション:');
+    buffer.writeln('\n📋 実行されたアクション:');
 
     for (final action in actions) {
       switch (action.type) {
@@ -78,7 +78,17 @@ class ActionHandler {
           buffer.writeln('• 期限調整: ${action.message}');
           break;
         case 'create_tasks':
-          buffer.writeln('• タスク作成: ${action.message}');
+          buffer.writeln('• ✅ タスク作成: ${action.message}');
+          if (action.success) {
+            final createdTasks = action.getCreatedTasks();
+            if (createdTasks != null && createdTasks.isNotEmpty) {
+              buffer.writeln('  追加されたタスク:');
+              for (final task in createdTasks) {
+                final date = task['date'] != null ? ' (${task['date']})' : '';
+                buffer.writeln('  - ${task['title']}$date');
+              }
+            }
+          }
           break;
         case 'update_tasks':
           buffer.writeln('• タスク更新: ${action.message}');
@@ -141,6 +151,15 @@ class ExecutedAction {
   /// 分割されたタスクの情報を取得
   List<Map<String, dynamic>>? get createdTasks {
     if (type == 'split_task') {
+      return (data['created_tasks'] as List<dynamic>?)
+          ?.cast<Map<String, dynamic>>();
+    }
+    return null;
+  }
+
+  /// 作成されたタスクの情報を取得
+  List<Map<String, dynamic>>? getCreatedTasks() {
+    if (type == 'create_tasks') {
       return (data['created_tasks'] as List<dynamic>?)
           ?.cast<Map<String, dynamic>>();
     }

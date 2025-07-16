@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
 from .models import Todo
 from . import db
@@ -118,6 +118,9 @@ class ActionParser:
         if not original_task:
             raise ValueError(f"タスクID {task_id} が見つかりません")
         
+        # 元のタスクのタイトルを保存（削除前に）
+        original_title = original_task.title
+        
         # 新しいサブタスクを作成
         created_tasks = []
         for i, task_data in enumerate(new_tasks):
@@ -128,7 +131,6 @@ class ActionParser:
             subtask = Todo(
                 title=task_data['title'],
                 date=subtask_date,
-                parent_id=original_task.id,
                 priority=task_data.get('priority', i),
                 done=False
             )
@@ -139,8 +141,8 @@ class ActionParser:
                 'priority': subtask.priority
             })
         
-        # 元のタスクを完了扱いにする（サブタスクが作成されたため）
-        original_task.done = True
+        # 元のタスクを削除
+        db.session.delete(original_task)
         
         db.session.commit()
         
@@ -149,7 +151,7 @@ class ActionParser:
             'success': True,
             'original_task_id': task_id,
             'created_tasks': created_tasks,
-            'message': f"タスク「{original_task.title}」を{len(created_tasks)}個のサブタスクに分割しました"
+            'message': f"タスク「{original_title}」を削除して{len(created_tasks)}個のタスクを追加しました"
         }
     
     def _adjust_deadline(self, action: Dict[str, Any]) -> Dict[str, Any]:
@@ -209,8 +211,13 @@ class ActionParser:
             if task_data.get('date'):
                 task_date = self._parse_date(task_data['date'])
             
+            # タイトルの妥当性チェック
+            title = task_data.get('title', '').strip()
+            if not title:
+                continue  # タイトルが空の場合はスキップ
+            
             task = Todo(
-                title=task_data['title'],
+                title=title,
                 date=task_date,
                 priority=task_data.get('priority', 0),
                 done=False
@@ -221,6 +228,13 @@ class ActionParser:
                 'date': task.date.isoformat() if task.date else None,
                 'priority': task.priority
             })
+        
+        if not created_tasks:
+            return {
+                'type': 'create_tasks',
+                'success': False,
+                'message': "作成可能なタスクがありませんでした"
+            }
         
         db.session.commit()
         
@@ -302,6 +316,24 @@ class ActionParser:
         if match:
             year, month, day = match.groups()
             return date(int(year), int(month), int(day))
+        
+        # 相対日付（今日、明日、来週など）
+        today = date.today()
+        date_str_lower = date_str.lower()
+        
+        if date_str_lower in ['今日', 'today']:
+            return today
+        elif date_str_lower in ['明日', 'tomorrow']:
+            return today + timedelta(days=1)
+        elif date_str_lower in ['来週', 'next week']:
+            return today + timedelta(weeks=1)
+        elif date_str_lower in ['来月', 'next month']:
+            next_month = today.month + 1
+            year = today.year
+            if next_month > 12:
+                next_month = 1
+                year += 1
+            return date(year, next_month, today.day)
         
         # その他の形式（例：2025-01-20）
         try:

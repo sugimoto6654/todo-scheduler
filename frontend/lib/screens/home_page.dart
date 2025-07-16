@@ -35,6 +35,7 @@ class _HomePageState extends State<HomePage> {
   final FocusNode _textFieldFocus = FocusNode();
 
   DateTime? _selectedDueDate;
+  bool _isUpdatingFromChat = false;
 
   @override
   void initState() {
@@ -129,19 +130,9 @@ class _HomePageState extends State<HomePage> {
           _chatMessages.add({'role': 'assistant', 'content': response.reply});
         });
         
-        // アクションが実行された場合、Todoリストとカレンダーをリフレッシュ
+        // アクションが実行された場合、即座にカレンダーを更新
         if (response.hasActions) {
-          await _fetchTodos();
-          
-          // アクション実行の通知を表示
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${response.actions.length}件のアクションが実行されました'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+          await _updateCalendarFromChatActions(response.actions);
         }
       } else {
         if (mounted) {
@@ -165,6 +156,123 @@ class _HomePageState extends State<HomePage> {
           curve: Curves.easeOut,
         );
       }
+    }
+  }
+
+  Future<void> _updateCalendarFromChatActions(List<ExecutedAction> actions) async {
+    setState(() {
+      _isUpdatingFromChat = true;
+    });
+
+    try {
+      // ChatGPTアクションの種類に応じて最適化された更新処理
+      final needsFullRefresh = _shouldPerformFullRefresh(actions);
+      
+      if (needsFullRefresh) {
+        // 全体のリフレッシュが必要な場合
+        await _fetchTodos();
+      } else {
+        // 部分的な更新で済む場合
+        await _performOptimizedUpdate(actions);
+      }
+
+      // 成功通知を表示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('${actions.length}件のアクションが実行されました'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // エラーが発生した場合はフォールバックとして全体リフレッシュ
+      print('Optimized update failed, falling back to full refresh: $e');
+      
+      try {
+        await _fetchTodos();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('カレンダーを更新しました（フォールバック）'),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (fallbackError) {
+        // フォールバックも失敗した場合
+        print('Fallback refresh also failed: $fallbackError');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('カレンダーの更新に失敗しました'),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: '再試行',
+                textColor: Colors.white,
+                onPressed: () => _fetchTodos(),
+              ),
+            ),
+          );
+        }
+      }
+    } finally {
+      setState(() {
+        _isUpdatingFromChat = false;
+      });
+    }
+  }
+
+  bool _shouldPerformFullRefresh(List<ExecutedAction> actions) {
+    // 以下の場合は全体リフレッシュが必要
+    for (final action in actions) {
+      if (action.type == 'split_task' || 
+          action.type == 'create_tasks' || 
+          actions.length > 5) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _performOptimizedUpdate(List<ExecutedAction> actions) async {
+    // 最適化された部分更新処理
+    try {
+      // キャッシュをクリアしてフレッシュなデータを取得
+      _todoService.clearCache();
+      
+      // 効率的なデータ取得
+      final fetchedTodos = await _todoService.fetchTodosOptimized();
+      final events = _todoService.organizeEventsByDate(fetchedTodos);
+
+      setState(() {
+        todos = fetchedTodos;
+        _events = events;
+      });
+    } catch (e) {
+      // エラーの場合は通常のfetchTodosにフォールバック
+      await _fetchTodos();
     }
   }
 
@@ -221,6 +329,7 @@ class _HomePageState extends State<HomePage> {
                           ChatInterfaceComponent(
                             chatMessages: _chatMessages,
                             chatScrollController: _chatScroll,
+                            isUpdatingFromChat: _isUpdatingFromChat,
                           ),
                         ],
                       ),
@@ -232,6 +341,7 @@ class _HomePageState extends State<HomePage> {
                         focusedDay: _focusedDay,
                         selectedDay: _selectedDay,
                         events: _events,
+                        isUpdating: _isUpdatingFromChat,
                         onDaySelected: (selectedDay, focusedDay) {
                           setState(() {
                             // Toggle functionality: if same date is clicked, unselect it

@@ -14,5 +14,9 @@ dependencies:
     sdk: flutter
   flutter_dotenv: ^5.1.0
 
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
 flutter:
   uses-material-design: true
