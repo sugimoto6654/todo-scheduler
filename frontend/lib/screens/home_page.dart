@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -9,6 +8,7 @@ import '../components/todo_input_component.dart';
 import '../services/todo_service.dart';
 import '../services/chat_service.dart';
 import '../services/action_handler.dart';
+import '../models/input_mode.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -36,6 +36,7 @@ class _HomePageState extends State<HomePage> {
 
   DateTime? _selectedDueDate;
   bool _isUpdatingFromChat = false;
+  InputMode _inputMode = InputMode.task;
 
   @override
   void initState() {
@@ -81,6 +82,12 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _toggleInputMode() {
+    setState(() {
+      _inputMode = _inputMode == InputMode.task ? InputMode.chat : InputMode.task;
+    });
+  }
+
   Future<void> _addTodoOrChat() async {
     final raw = _controller.text.trim();
     if (raw.isEmpty) return;
@@ -88,6 +95,13 @@ class _HomePageState extends State<HomePage> {
     _controller.clear();
     _textFieldFocus.requestFocus();
 
+    // Handle chat mode input
+    if (_inputMode == InputMode.chat) {
+      await _sendChat(raw);
+      return;
+    }
+
+    // Handle task mode input (also support legacy /chat prefix)
     if (raw.startsWith('/chat ')) {
       await _sendChat(raw.substring(6).trim());
       return;
@@ -369,6 +383,8 @@ class _HomePageState extends State<HomePage> {
                 onSubmit: _addTodoOrChat,
                 onSelectDueDate: _selectDueDate,
                 onClearDueDate: _clearDueDate,
+                inputMode: _inputMode,
+                onToggleMode: _toggleInputMode,
               ),
             ],
           ),

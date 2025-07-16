@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../models/input_mode.dart';
 
 class TodoInputComponent extends StatelessWidget {
   final TextEditingController controller;
@@ -7,6 +9,8 @@ class TodoInputComponent extends StatelessWidget {
   final VoidCallback onSubmit;
   final VoidCallback onSelectDueDate;
   final VoidCallback onClearDueDate;
+  final InputMode inputMode;
+  final VoidCallback onToggleMode;
 
   const TodoInputComponent({
     super.key,
@@ -16,20 +20,35 @@ class TodoInputComponent extends StatelessWidget {
     required this.onSubmit,
     required this.onSelectDueDate,
     required this.onClearDueDate,
+    required this.inputMode,
+    required this.onToggleMode,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          children: [
-            if (selectedDueDate != null) _buildDueDateDisplay(),
-            _buildInputRow(),
-          ],
+    return Focus(
+      onKeyEvent: (FocusNode node, KeyEvent event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
+          onToggleMode();
+          // Maintain focus on the text field after mode toggle
+          Future.delayed(Duration.zero, () {
+            focusNode.requestFocus();
+          });
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            children: [
+              if (selectedDueDate != null) _buildDueDateDisplay(),
+              _buildInputRow(),
+            ],
+          ),
         ),
       ),
     );
@@ -76,20 +95,13 @@ class TodoInputComponent extends StatelessWidget {
   Widget _buildInputRow() {
     return Row(
       children: [
-        IconButton(
-          icon: Icon(
-            Icons.calendar_today_outlined,
-            color: selectedDueDate != null ? Colors.blue : Colors.grey.shade600,
-          ),
-          onPressed: onSelectDueDate,
-          tooltip: '期限を選択',
-        ),
+        _buildModeIndicator(),
         Expanded(
           child: TextField(
             controller: controller,
             focusNode: focusNode,
-            decoration: const InputDecoration(
-              hintText: 'タスクを追加、または /chat で話しかける（例：/chat 明日の会議準備タスクを追加して）',
+            decoration: InputDecoration(
+              hintText: inputMode.placeholder,
               border: InputBorder.none,
               focusedBorder: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -106,6 +118,39 @@ class TodoInputComponent extends StatelessWidget {
           color: Colors.blue,
         ),
       ],
+    );
+  }
+
+  Widget _buildModeIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(right: 8),
+      decoration: BoxDecoration(
+        color: inputMode == InputMode.task ? Colors.blue.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: inputMode == InputMode.task ? Colors.blue.shade300 : Colors.green.shade300,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            inputMode == InputMode.task ? Icons.task_alt : Icons.chat_bubble_outline,
+            size: 16,
+            color: inputMode == InputMode.task ? Colors.blue : Colors.green,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            inputMode.displayName,
+            style: TextStyle(
+              color: inputMode == InputMode.task ? Colors.blue : Colors.green,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
