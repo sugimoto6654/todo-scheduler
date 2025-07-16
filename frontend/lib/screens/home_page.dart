@@ -8,6 +8,7 @@ import '../components/chat_interface_component.dart';
 import '../components/todo_input_component.dart';
 import '../services/todo_service.dart';
 import '../services/chat_service.dart';
+import '../services/action_handler.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -118,14 +119,36 @@ class _HomePageState extends State<HomePage> {
       final currentMonthTasks = _todoService.getCurrentMonthTasks(todos, _focusedDay);
       final taskContext = _todoService.formatTasksForPrompt(currentMonthTasks, _focusedDay);
       
-      final reply = await _chatService.sendMessage(
+      final response = await _chatService.sendMessage(
         _chatMessages,
         currentMonthTasks: taskContext,
       );
-      if (reply != null) {
+      
+      if (response.success) {
         setState(() {
-          _chatMessages.add({'role': 'assistant', 'content': reply});
+          _chatMessages.add({'role': 'assistant', 'content': response.reply});
         });
+        
+        // アクションが実行された場合、Todoリストとカレンダーをリフレッシュ
+        if (response.hasActions) {
+          await _fetchTodos();
+          
+          // アクション実行の通知を表示
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${response.actions.length}件のアクションが実行されました'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'エラーが発生しました')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -4,6 +4,7 @@ import requests
 from flask import request, jsonify
 from . import app, db
 from .models import Todo
+from .action_parser import ActionParser
 
 # --------------------------------------
 # ヘルパ関数
@@ -101,6 +102,81 @@ def delete_todo(todo_id):
     return "", 204
 
 
+@app.route("/todos/bulk", methods=["POST"])
+def bulk_create_todos():
+    """複数のTodoを一括作成"""
+    data = request.get_json(silent=True) or {}
+    todos_data = data.get("todos", [])
+    
+    if not todos_data:
+        return jsonify({"error": "todos is required"}), 400
+    
+    created_todos = []
+    
+    for todo_data in todos_data:
+        title = todo_data.get("title", "").strip()
+        if not title:
+            continue
+        
+        # 日付を解析
+        date_value = todo_data.get("date")
+        if date_value:
+            parsed_date = _parse_iso_date(date_value)
+        else:
+            parsed_date = None
+        
+        todo = Todo(
+            title=title,
+            date=parsed_date,
+            done=todo_data.get("done", False),
+            parent_id=todo_data.get("parent_id"),
+            priority=todo_data.get("priority", 0)
+        )
+        db.session.add(todo)
+        created_todos.append(todo)
+    
+    db.session.commit()
+    
+    return jsonify([_todo_to_dict(todo) for todo in created_todos]), 201
+
+
+@app.route("/todos/bulk", methods=["PATCH"])
+def bulk_update_todos():
+    """複数のTodoを一括更新"""
+    data = request.get_json(silent=True) or {}
+    updates = data.get("updates", [])
+    
+    if not updates:
+        return jsonify({"error": "updates is required"}), 400
+    
+    updated_todos = []
+    
+    for update in updates:
+        todo_id = update.get("id")
+        if not todo_id:
+            continue
+        
+        todo = Todo.query.get(todo_id)
+        if not todo:
+            continue
+        
+        # フィールドを更新
+        if "title" in update:
+            todo.title = update["title"].strip() or todo.title
+        if "done" in update:
+            todo.done = bool(update["done"])
+        if "date" in update:
+            todo.date = _parse_iso_date(update["date"])
+        if "priority" in update:
+            todo.priority = update["priority"]
+        
+        updated_todos.append(todo)
+    
+    db.session.commit()
+    
+    return jsonify([_todo_to_dict(todo) for todo in updated_todos])
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     """ChatGPT API を呼び出してレスポンスを返す"""
@@ -122,7 +198,37 @@ def chat():
 
 {current_month_tasks}
 
-上記のタスク情報を参考にして、ユーザーのリクエストに応じてタスクの分割、統合、優先度の提案、スケジュール調整などを行ってください。タスクIDを参照する際は、上記リストの情報を使用してください。"""
+上記のタスク情報を参考にして、ユーザーのリクエストに応じてタスクの分割、統合、優先度の提案、スケジュール調整などを行ってください。タスクIDを参照する際は、上記リストの情報を使用してください。
+
+## 重要：アクション実行について
+
+タスクの分割や期限調整などの実際の操作を行う場合は、以下の形式でJSON形式のアクションを応答に含めてください：
+
+### タスク分割の場合：
+```json
+{{
+  "type": "split_task",
+  "task_id": 123,
+  "new_tasks": [
+    {{"title": "サブタスク1", "date": "2025-01-20", "priority": 1}},
+    {{"title": "サブタスク2", "date": "2025-01-22", "priority": 2}}
+  ]
+}}
+```
+
+### 期限調整の場合：
+```json
+{{
+  "type": "adjust_deadline",
+  "updates": [
+    {{"task_id": 123, "new_date": "2025-01-25"}},
+    {{"task_id": 124, "new_date": "2025-01-26"}}
+  ]
+}}
+```
+
+このJSONアクションが応答に含まれている場合、システムが自動的にデータベースに反映します。
+通常の会話や提案の場合はJSONアクションを含める必要はありません。"""
             }
             # systemプロンプトをmessagesの先頭に挿入
             messages = [system_prompt] + messages
@@ -168,7 +274,22 @@ def chat():
             data = response.json()
             reply = data['choices'][0]['message']['content']
             print(f"OpenAI reply received: {len(reply)} chars")  # デバッグログ
-            return jsonify({"reply": reply.strip()})
+            
+            # アクション解析と実行
+            action_parser = ActionParser()
+            action_result = action_parser.parse_and_execute(reply)
+            
+            if action_result['success']:
+                response_data = {
+                    "reply": action_result['message'],
+                    "actions_executed": action_result.get('executed_actions', [])
+                }
+                return jsonify(response_data)
+            else:
+                return jsonify({
+                    "reply": reply.strip(),
+                    "action_error": action_result.get('error')
+                })
         else:
             error_text = response.text
             print(f"OpenAI API error: {response.status_code} - {error_text}")  # デバッグログ
