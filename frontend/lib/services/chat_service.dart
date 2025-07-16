@@ -6,12 +6,24 @@ class ChatService {
 
   ChatService({required this.apiUrl});
 
-  Future<String?> sendMessage(List<Map<String, String>> messages) async {
+  Future<String?> sendMessage(
+    List<Map<String, String>> messages, {
+    String? currentMonthTasks,
+  }) async {
     try {
+      final requestBody = <String, dynamic>{
+        'messages': messages,
+      };
+      
+      // 現在月のタスク情報があれば追加
+      if (currentMonthTasks != null && currentMonthTasks.isNotEmpty) {
+        requestBody['current_month_tasks'] = currentMonthTasks;
+      }
+      
       final res = await http.post(
         Uri.parse('$apiUrl/chat'),
         headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode({'messages': messages}),
+        body: jsonEncode(requestBody),
       );
 
       if (res.statusCode == 200) {

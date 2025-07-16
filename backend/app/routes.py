@@ -113,9 +113,24 @@ def chat():
             print("No messages provided")  # デバッグログ
             return jsonify({"error": "messages is required"}), 400
         
+        # 現在月のタスク情報を取得してsystemプロンプトに追加
+        current_month_tasks = data.get("current_month_tasks", "")
+        if current_month_tasks:
+            system_prompt = {
+                "role": "system",
+                "content": f"""あなたはタスク管理アシスタントです。現在、ユーザーは以下のタスクを管理しています：
+
+{current_month_tasks}
+
+上記のタスク情報を参考にして、ユーザーのリクエストに応じてタスクの分割、統合、優先度の提案、スケジュール調整などを行ってください。タスクIDを参照する際は、上記リストの情報を使用してください。"""
+            }
+            # systemプロンプトをmessagesの先頭に挿入
+            messages = [system_prompt] + messages
+            print(f"Added system prompt with {len(current_month_tasks)} chars of task context")  # デバッグログ
+        
         # 環境変数からOpenAI設定を取得
         openai_key = os.getenv('OPENAI_API_KEY')
-        openai_model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+        openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-2024-08-06')
         mock_mode = os.getenv('CHAT_MOCK_MODE', 'false').lower() == 'true'
         
         print(f"OpenAI key configured: {bool(openai_key)}")  # デバッグログ

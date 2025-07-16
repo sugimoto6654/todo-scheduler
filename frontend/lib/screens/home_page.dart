@@ -114,7 +114,14 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      final reply = await _chatService.sendMessage(_chatMessages);
+      // 現在フォーカス中の月のタスク情報を取得
+      final currentMonthTasks = _todoService.getCurrentMonthTasks(todos, _focusedDay);
+      final taskContext = _todoService.formatTasksForPrompt(currentMonthTasks, _focusedDay);
+      
+      final reply = await _chatService.sendMessage(
+        _chatMessages,
+        currentMonthTasks: taskContext,
+      );
       if (reply != null) {
         setState(() {
           _chatMessages.add({'role': 'assistant', 'content': reply});
@@ -204,7 +211,15 @@ class _HomePageState extends State<HomePage> {
                         events: _events,
                         onDaySelected: (selectedDay, focusedDay) {
                           setState(() {
-                            _selectedDay = selectedDay;
+                            // Toggle functionality: if same date is clicked, unselect it
+                            if (_selectedDay != null && 
+                                _selectedDay!.year == selectedDay.year &&
+                                _selectedDay!.month == selectedDay.month &&
+                                _selectedDay!.day == selectedDay.day) {
+                              _selectedDay = null;
+                            } else {
+                              _selectedDay = selectedDay;
+                            }
                             _focusedDay = focusedDay;
                           });
                         },

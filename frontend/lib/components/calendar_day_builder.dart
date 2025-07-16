@@ -11,7 +11,9 @@ class CalendarDayBuilder {
   ) {
     final tasks = events[_stripTime(date)] ?? [];
     return Container(
-      margin: const EdgeInsets.all(2.0),
+      margin: const EdgeInsets.all(1.0),
+      padding: const EdgeInsets.all(1.0),
+      constraints: const BoxConstraints(minWidth: 100.0),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300, width: 0.5),
         borderRadius: BorderRadius.circular(4),
@@ -27,12 +29,11 @@ class CalendarDayBuilder {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2.0),
               child: Column(
-                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ...tasks.take(6).map((task) => _buildTaskContainer(task, false)),
                   if (tasks.length > 6) _buildMoreTasksIndicator(tasks.length - 6, false),
-                  const Spacer(),
                 ],
               ),
             ),
@@ -50,7 +51,9 @@ class CalendarDayBuilder {
   ) {
     final tasks = events[_stripTime(date)] ?? [];
     return Container(
-      margin: const EdgeInsets.all(2.0),
+      margin: const EdgeInsets.all(1.0),
+      padding: const EdgeInsets.all(1.0),
+      constraints: const BoxConstraints(minWidth: 100.0),
       decoration: BoxDecoration(
         color: Colors.orange.shade300,
         borderRadius: BorderRadius.circular(4),
@@ -73,12 +76,11 @@ class CalendarDayBuilder {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2.0),
               child: Column(
-                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ...tasks.take(6).map((task) => _buildTaskContainer(task, true)),
                   if (tasks.length > 6) _buildMoreTasksIndicator(tasks.length - 6, true),
-                  const Spacer(),
                 ],
               ),
             ),
@@ -96,7 +98,9 @@ class CalendarDayBuilder {
   ) {
     final tasks = events[_stripTime(date)] ?? [];
     return Container(
-      margin: const EdgeInsets.all(2.0),
+      margin: const EdgeInsets.all(1.0),
+      padding: const EdgeInsets.all(1.0),
+      constraints: const BoxConstraints(minWidth: 100.0),
       decoration: BoxDecoration(
         color: Colors.blue.shade100,
         borderRadius: BorderRadius.circular(4),
@@ -119,12 +123,11 @@ class CalendarDayBuilder {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2.0),
               child: Column(
-                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ...tasks.take(6).map((task) => _buildTaskContainer(task, false, isToday: true)),
                   if (tasks.length > 6) _buildMoreTasksIndicator(tasks.length - 6, false, isToday: true),
-                  const Spacer(),
                 ],
               ),
             ),

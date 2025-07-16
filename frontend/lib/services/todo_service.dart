@@ -82,4 +82,77 @@ class TodoService {
   }
 
   DateTime _stripTime(DateTime dt) => DateTime.utc(dt.year, dt.month, dt.day);
+
+  /// 指定された月のタスクを取得
+  List<Map<String, dynamic>> getCurrentMonthTasks(
+    List<Map<String, dynamic>> todos,
+    DateTime focusedMonth,
+  ) {
+    final targetYear = focusedMonth.year;
+    final targetMonth = focusedMonth.month;
+    
+    return todos.where((todo) {
+      if (todo['date'] == null) return false;
+      
+      final taskDate = DateTime.parse(todo['date']);
+      return taskDate.year == targetYear && taskDate.month == targetMonth;
+    }).toList();
+  }
+
+  /// タスク情報をChatGPTプロンプト用にフォーマット
+  String formatTasksForPrompt(List<Map<String, dynamic>> monthTasks, DateTime focusedMonth) {
+    if (monthTasks.isEmpty) {
+      return "${focusedMonth.year}年${focusedMonth.month}月には登録されているタスクがありません。";
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln("【${focusedMonth.year}年${focusedMonth.month}月のタスク一覧】");
+    buffer.writeln();
+
+    // 日付でグループ化
+    final tasksByDate = <String, List<Map<String, dynamic>>>{};
+    for (final task in monthTasks) {
+      final date = task['date'] as String;
+      final dateKey = DateTime.parse(date);
+      final dateStr = "${dateKey.month}月${dateKey.day}日";
+      tasksByDate.putIfAbsent(dateStr, () => []).add(task);
+    }
+
+    // 日付順でソート
+    final sortedDates = tasksByDate.keys.toList()
+      ..sort((a, b) {
+        final dateA = _parseJapaneseDate(a, focusedMonth.year);
+        final dateB = _parseJapaneseDate(b, focusedMonth.year);
+        return dateA.compareTo(dateB);
+      });
+
+    for (final dateStr in sortedDates) {
+      buffer.writeln("■ $dateStr");
+      final tasksForDate = tasksByDate[dateStr]!;
+      
+      for (final task in tasksForDate) {
+        final id = task['id'];
+        final title = task['title'];
+        final done = task['done'] as bool;
+        final status = done ? '完了' : '未完了';
+        
+        buffer.writeln("  - ID:$id \"$title\" ($status)");
+      }
+      buffer.writeln();
+    }
+
+    return buffer.toString();
+  }
+
+  /// 日本語の日付文字列をDateTimeに変換するヘルパー
+  DateTime _parseJapaneseDate(String dateStr, int year) {
+    final regex = RegExp(r'(\d+)月(\d+)日');
+    final match = regex.firstMatch(dateStr);
+    if (match != null) {
+      final month = int.parse(match.group(1)!);
+      final day = int.parse(match.group(2)!);
+      return DateTime(year, month, day);
+    }
+    return DateTime.now();
+  }
 }

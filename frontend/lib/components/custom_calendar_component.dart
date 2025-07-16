@@ -23,7 +23,12 @@ class CustomCalendarComponent extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: TableCalendar(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: 500.0,
+            maxWidth: 800.0,
+          ),
+          child: TableCalendar(
           locale: 'ja_JP',
           firstDay: DateTime.utc(2020),
           lastDay: DateTime.utc(2030),
@@ -47,6 +52,7 @@ class CustomCalendarComponent extends StatelessWidget {
                 CalendarDayBuilder.buildTodayDay(context, date, focusedDay, events),
           ),
           calendarStyle: const CalendarStyle(outsideDaysVisible: false),
+          ),
         ),
       ),
     );
