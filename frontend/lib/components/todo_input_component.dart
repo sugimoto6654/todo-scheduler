@@ -36,7 +36,8 @@ class TodoInputComponent extends StatelessWidget {
           });
           return KeyEventResult.handled;
         }
-        return KeyEventResult.ignored;
+        // Allow all other keys to pass through to the TextField
+        return KeyEventResult.skipRemainingHandlers;
       },
       child: Card(
         elevation: 2,
