@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -84,29 +85,24 @@ class NotificationScheduler:
             print(f"Error in daily notification job: {e}")
     
     def send_test_notification(self):
-        """テスト通知を送信（デバッグ用）"""
+        """テスト通知を送信（デバッグ用）- 本番の日次通知メソッドを使用"""
         try:
-            print(f"Sending test notification at {datetime.now()}")
+            jst = pytz.timezone('Asia/Tokyo')
+            now_jst = datetime.now(jst)
+            print(f"Sending test notification (using production method) at {now_jst}")
             
-            # テスト用のカスタムメッセージ
-            test_message = (
-                "🧪 テスト通知です\n"
-                f"📅 {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}\n"
-                "\n"
-                "この通知が届いていれば、LINE Bot の設定は正常に動作しています！"
-            )
-            
-            result = self.line_service.send_custom_notification(test_message)
+            # 本番の日次通知メソッドを直接呼び出し
+            result = self.line_service.send_daily_task_notification()
             
             if result:
-                print("Test notification sent successfully.")
+                print("Test notification (production method) sent successfully.")
                 return True
             else:
-                print("Failed to send test notification.")
+                print("Failed to send test notification (production method).")
                 return False
                 
         except Exception as e:
-            print(f"Error in test notification: {e}")
+            print(f"Error in test notification (production method): {e}")
             return False
     
     def get_jobs(self):

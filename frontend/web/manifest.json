@@ -1,6 +1,9 @@
 {
-  "name": "Todo Scheduler",
-  "short_name": "Todo",
+  "name": "Todo Scheduler - タスク管理アプリ",
+  "short_name": "Todo Scheduler",
+  "description": "LINE通知機能付きタスク管理アプリケーション",
   "start_url": "/",
-  "display": "standalone"
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2196f3"
 }

@@ -29,8 +29,9 @@ with app.app_context():
 # ---------- 5) 通知スケジューラーを初期化・開始 ----------
 try:
     from .scheduler import NotificationScheduler
-    scheduler_instance = NotificationScheduler()
-    scheduler_instance.start()
+    app.scheduler = NotificationScheduler()
+    app.scheduler.start()
     print("Notification scheduler initialized and started.")
 except Exception as e:
     print(f"Failed to initialize notification scheduler: {e}")
+    app.scheduler = None

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'dart:html' as html;
 
 import '../components/todo_list_component.dart';
 import '../components/custom_calendar_component.dart';
 import '../components/chat_interface_component.dart';
 import '../components/todo_input_component.dart';
+import '../components/debug_panel.dart';
 import '../services/todo_service.dart';
 import '../services/chat_service.dart';
 import '../services/action_handler.dart';
@@ -20,6 +22,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final String _api = const String.fromEnvironment('API', defaultValue: 'http://backend:5000');
+  static const bool _isDebugMode = bool.fromEnvironment('DEBUG_MODE', defaultValue: false);
 
   late final TodoService _todoService;
   late final ChatService _chatService;
@@ -42,6 +45,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    
+    // HTMLタイトルを直接設定
+    html.document.title = 'Todo Scheduler - タスク管理アプリ';
+    
     _todoService = TodoService(apiUrl: _api);
     _chatService = ChatService(apiUrl: _api);
     _fetchTodos();
@@ -299,7 +306,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // タイトルを強制的に設定（再レンダリング時にも適用）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      html.document.title = 'Todo Scheduler - タスク管理アプリ';
+    });
+    
     return MaterialApp(
+      title: 'Todo Scheduler - タスク管理アプリ',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -391,6 +404,10 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
+                if (_isDebugMode) ...[
+                  const SizedBox(height: 16),
+                  DebugPanel(apiUrl: _api),
+                ],
                 const SizedBox(height: 16),
                 TodoInputComponent(
                   controller: _controller,

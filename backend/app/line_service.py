@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, date
+import pytz
 from linebot import LineBotApi
 from linebot.models import TextSendMessage
 from linebot.exceptions import LineBotApiError
@@ -86,10 +87,14 @@ class LineNotificationService:
     
     def _build_daily_message(self, today, today_tasks, no_deadline_tasks):
         """日次通知メッセージを構築"""
+        # 日付をJSTで表示
+        jst = pytz.timezone('Asia/Tokyo')
+        today_jst = datetime.now(jst).date()
+        
         # ヘッダー
         message_lines = [
             "🌅 おはようございます！",
-            f"📅 {today.strftime('%Y年%m月%d日')} のタスクをお知らせします。"
+            f"📅 {today_jst.strftime('%Y年%m月%d日')} のタスクをお知らせします。"
         ]
         
         # 今日のタスク

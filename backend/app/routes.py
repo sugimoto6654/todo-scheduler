@@ -332,11 +332,11 @@ def chat():
 @app.route("/debug/send-notification", methods=["POST"])
 def debug_send_notification():
     """デバッグ用：手動でLINE通知を送信"""
-    from .scheduler import NotificationScheduler
-    
     try:
-        scheduler_instance = NotificationScheduler()
-        result = scheduler_instance.send_test_notification()
+        if not hasattr(app, 'scheduler') or app.scheduler is None:
+            return jsonify({"error": "Scheduler not initialized"}), 500
+            
+        result = app.scheduler.send_test_notification()
         
         if result:
             return jsonify({"message": "Test notification sent successfully"}), 200
@@ -351,12 +351,12 @@ def debug_send_notification():
 @app.route("/debug/scheduler-status", methods=["GET"])  
 def debug_scheduler_status():
     """デバッグ用：スケジューラーの状態を取得"""
-    from .scheduler import NotificationScheduler
-    
     try:
-        scheduler_instance = NotificationScheduler()
-        status = scheduler_instance.get_status()
-        jobs = scheduler_instance.get_jobs()
+        if not hasattr(app, 'scheduler') or app.scheduler is None:
+            return jsonify({"error": "Scheduler not initialized"}), 500
+            
+        status = app.scheduler.get_status()
+        jobs = app.scheduler.get_jobs()
         
         return jsonify({
             "status": status,
@@ -366,3 +366,56 @@ def debug_scheduler_status():
     except Exception as e:
         print(f"Debug status error: {str(e)}")
         return jsonify({"error": f"Error: {str(e)}"}), 500
+
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    """LINE Webhook - User IDを取得するための一時的なエンドポイント"""
+    import sys
+    try:
+        # Get raw data first
+        raw_data = request.get_data(as_text=True)
+        print(f"=== RAW WEBHOOK DATA ===", flush=True)
+        sys.stdout.flush()
+        print(raw_data, flush=True)
+        sys.stdout.flush()
+        print("========================", flush=True)
+        sys.stdout.flush()
+        
+        body = request.get_json()
+        print("=== LINE Webhook Event ===", flush=True)
+        sys.stdout.flush()
+        print(f"Request body: {body}", flush=True)
+        sys.stdout.flush()
+        
+        if body and 'events' in body:
+            for event in body['events']:
+                print(f"Processing event: {event}", flush=True)
+                sys.stdout.flush()
+                if 'source' in event and 'userId' in event['source']:
+                    user_id = event['source']['userId']
+                    print(f"*** USER ID FOUND: {user_id} ***", flush=True)
+                    sys.stdout.flush()
+                    
+                    # User IDをファイルに保存
+                    with open('/tmp/user_id.txt', 'w') as f:
+                        f.write(user_id)
+                    
+                    # メッセージイベントの場合、確認メッセージを送信
+                    if event['type'] == 'message':
+                        print(f"Sending confirmation message for User ID: {user_id}", flush=True)
+                        sys.stdout.flush()
+                        # LINE Bot APIを使って確認メッセージを送信
+                        if hasattr(app, 'scheduler') and app.scheduler and app.scheduler.line_service.enabled:
+                            confirmation_msg = f"✅ User IDを取得しました！\nYour User ID: {user_id}\n\nこのIDを.envファイルのLINE_USER_IDに設定してください。"
+                            app.scheduler.line_service.send_custom_notification(confirmation_msg)
+        else:
+            print("No events found in webhook body", flush=True)
+            sys.stdout.flush()
+                
+        return jsonify({"status": "ok"}), 200
+        
+    except Exception as e:
+        print(f"Webhook error: {str(e)}", flush=True)
+        sys.stdout.flush()
+        return jsonify({"error": str(e)}), 500
