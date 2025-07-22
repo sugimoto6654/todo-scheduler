@@ -108,34 +108,37 @@ class TodoInputComponent extends StatelessWidget {
   }
 
   Widget _buildModeIndicator() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        color: inputMode == InputMode.task ? Colors.blue.shade50 : Colors.green.shade50,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: inputMode == InputMode.task ? Colors.blue.shade300 : Colors.green.shade300,
+    return GestureDetector(
+      onTap: onToggleMode,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: inputMode == InputMode.task ? Colors.blue.shade50 : Colors.green.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: inputMode == InputMode.task ? Colors.blue.shade300 : Colors.green.shade300,
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            inputMode == InputMode.task ? Icons.task_alt : Icons.chat_bubble_outline,
-            size: 16,
-            color: inputMode == InputMode.task ? Colors.blue : Colors.green,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            inputMode.displayName,
-            style: TextStyle(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              inputMode == InputMode.task ? Icons.task_alt : Icons.chat_bubble_outline,
+              size: 16,
               color: inputMode == InputMode.task ? Colors.blue : Colors.green,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Text(
+              inputMode.displayName,
+              style: TextStyle(
+                color: inputMode == InputMode.task ? Colors.blue : Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
