@@ -323,3 +323,46 @@ def chat():
         import traceback
         traceback.print_exc()  # スタックトレースも出力
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
+
+# --------------------------------------
+# デバッグ・通知エンドポイント
+# --------------------------------------
+
+@app.route("/debug/send-notification", methods=["POST"])
+def debug_send_notification():
+    """デバッグ用：手動でLINE通知を送信"""
+    from .scheduler import NotificationScheduler
+    
+    try:
+        scheduler_instance = NotificationScheduler()
+        result = scheduler_instance.send_test_notification()
+        
+        if result:
+            return jsonify({"message": "Test notification sent successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to send test notification"}), 500
+            
+    except Exception as e:
+        print(f"Debug notification error: {str(e)}")
+        return jsonify({"error": f"Error: {str(e)}"}), 500
+
+
+@app.route("/debug/scheduler-status", methods=["GET"])  
+def debug_scheduler_status():
+    """デバッグ用：スケジューラーの状態を取得"""
+    from .scheduler import NotificationScheduler
+    
+    try:
+        scheduler_instance = NotificationScheduler()
+        status = scheduler_instance.get_status()
+        jobs = scheduler_instance.get_jobs()
+        
+        return jsonify({
+            "status": status,
+            "jobs": jobs
+        }), 200
+        
+    except Exception as e:
+        print(f"Debug status error: {str(e)}")
+        return jsonify({"error": f"Error: {str(e)}"}), 500

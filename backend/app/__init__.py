@@ -25,3 +25,12 @@ from . import routes, models  # noqa: E402
 # ---------- 4) テーブルを用意 ----------
 with app.app_context():
     db.create_all()
+
+# ---------- 5) 通知スケジューラーを初期化・開始 ----------
+try:
+    from .scheduler import NotificationScheduler
+    scheduler_instance = NotificationScheduler()
+    scheduler_instance.start()
+    print("Notification scheduler initialized and started.")
+except Exception as e:
+    print(f"Failed to initialize notification scheduler: {e}")
