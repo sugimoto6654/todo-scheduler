@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/input_mode.dart';
 
 class TodoInputComponent extends StatelessWidget {
@@ -26,30 +25,16 @@ class TodoInputComponent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      onKeyEvent: (FocusNode node, KeyEvent event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
-          onToggleMode();
-          // Maintain focus on the text field after mode toggle
-          Future.delayed(Duration.zero, () {
-            focusNode.requestFocus();
-          });
-          return KeyEventResult.handled;
-        }
-        // Allow all other keys to pass through to the TextField
-        return KeyEventResult.skipRemainingHandlers;
-      },
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Column(
-            children: [
-              if (selectedDueDate != null) _buildDueDateDisplay(),
-              _buildInputRow(),
-            ],
-          ),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            if (selectedDueDate != null) _buildDueDateDisplay(),
+            _buildInputRow(),
+          ],
         ),
       ),
     );

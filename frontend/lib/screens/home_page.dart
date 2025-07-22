@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../components/todo_list_component.dart';
@@ -85,6 +86,12 @@ class _HomePageState extends State<HomePage> {
   void _toggleInputMode() {
     setState(() {
       _inputMode = _inputMode == InputMode.task ? InputMode.chat : InputMode.task;
+    });
+    // Maintain focus on the text field after mode toggle
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_textFieldFocus.context?.mounted == true) {
+        _textFieldFocus.requestFocus();
+      }
     });
   }
 
@@ -309,84 +316,94 @@ class _HomePageState extends State<HomePage> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: Scaffold(
-        backgroundColor: Colors.grey.shade50,
-        appBar: AppBar(
-          title: const Text(
-            'Todo Scheduler',
-            style: TextStyle(fontWeight: FontWeight.bold),
+      home: Focus(
+        autofocus: true,
+        onKeyEvent: (FocusNode node, KeyEvent event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
+            _toggleInputMode();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Scaffold(
+          backgroundColor: Colors.grey.shade50,
+          appBar: AppBar(
+            title: const Text(
+              'Todo Scheduler',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+            elevation: 1,
           ),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
-          elevation: 1,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: TodoListComponent(
-                              todos: todos,
-                              apiUrl: _api,
-                              onTodoUpdate: _fetchTodos,
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: TodoListComponent(
+                                todos: todos,
+                                apiUrl: _api,
+                                onTodoUpdate: _fetchTodos,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          ChatInterfaceComponent(
-                            chatMessages: _chatMessages,
-                            chatScrollController: _chatScroll,
-                            isUpdatingFromChat: _isUpdatingFromChat,
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            ChatInterfaceComponent(
+                              chatMessages: _chatMessages,
+                              chatScrollController: _chatScroll,
+                              isUpdatingFromChat: _isUpdatingFromChat,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: CustomCalendarComponent(
-                        focusedDay: _focusedDay,
-                        selectedDay: _selectedDay,
-                        events: _events,
-                        isUpdating: _isUpdatingFromChat,
-                        onDaySelected: (selectedDay, focusedDay) {
-                          setState(() {
-                            // Toggle functionality: if same date is clicked, unselect it
-                            if (_selectedDay != null && 
-                                _selectedDay!.year == selectedDay.year &&
-                                _selectedDay!.month == selectedDay.month &&
-                                _selectedDay!.day == selectedDay.day) {
-                              _selectedDay = null;
-                            } else {
-                              _selectedDay = selectedDay;
-                            }
-                            _focusedDay = focusedDay;
-                          });
-                        },
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: CustomCalendarComponent(
+                          focusedDay: _focusedDay,
+                          selectedDay: _selectedDay,
+                          events: _events,
+                          isUpdating: _isUpdatingFromChat,
+                          onDaySelected: (selectedDay, focusedDay) {
+                            setState(() {
+                              // Toggle functionality: if same date is clicked, unselect it
+                              if (_selectedDay != null && 
+                                  _selectedDay!.year == selectedDay.year &&
+                                  _selectedDay!.month == selectedDay.month &&
+                                  _selectedDay!.day == selectedDay.day) {
+                                _selectedDay = null;
+                              } else {
+                                _selectedDay = selectedDay;
+                              }
+                              _focusedDay = focusedDay;
+                            });
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TodoInputComponent(
-                controller: _controller,
-                focusNode: _textFieldFocus,
-                selectedDueDate: _selectedDueDate,
-                onSubmit: _addTodoOrChat,
-                onSelectDueDate: _selectDueDate,
-                onClearDueDate: _clearDueDate,
-                inputMode: _inputMode,
-                onToggleMode: _toggleInputMode,
-              ),
-            ],
+                const SizedBox(height: 16),
+                TodoInputComponent(
+                  controller: _controller,
+                  focusNode: _textFieldFocus,
+                  selectedDueDate: _selectedDueDate,
+                  onSubmit: _addTodoOrChat,
+                  onSelectDueDate: _selectDueDate,
+                  onClearDueDate: _clearDueDate,
+                  inputMode: _inputMode,
+                  onToggleMode: _toggleInputMode,
+                ),
+              ],
+            ),
           ),
         ),
       ),
