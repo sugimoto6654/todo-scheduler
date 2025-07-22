@@ -13,3 +13,14 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: start --config /etc/ngrok.yml --all
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    environment:
+      - NGROK_AUTHTOKEN
+    depends_on:
+      - frontend
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+version: "2"
+tunnels:
+  web:
+    proto: http
+    addr: frontend:80
+    hostname: fleet-chimp-uniformly.ngrok-free.app
